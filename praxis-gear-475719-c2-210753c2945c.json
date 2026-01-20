@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "praxis-gear-475719-c2",
+  "private_key_id": "210753c2945c0249089f6b37f3a779a2a7e04274",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCiYAtIZdarMtXY\nnUDs39p5iX9Ewabnr6kZ65qqQBsJ0IQR6FMdSamoAa0/5Q+w9W0MewPn+gO8vub0\nfAG++Q3kgBUpbiGc7i55g1Szn41CTEmpBKvgflaHnVLGKwu6BjlJnjuSbdnb3/Zt\nfDejS4QXvHsmE5y4XETHd2kam2sGTfw9ZYZPf8RuBicXN/37JhYwkifFdMbIXG7X\nxg/xqXY7pCNgkAjipTbVg1dYpO8mVP+BxeSFj8VRwzwNZ+r3CFQotL0/EoY201nG\nXJpMcpjRlXH4FiYcY3aVB3EFEnfWWpTUca4l6SPVURDkKqU6hXG49YxTcP0DXc4C\nwnVN2PvpAgMBAAECggEAA9wqabrWpz5g7+PBH1QjJkLiUyU6TWfEb2KoGvKx4J+8\neY1GmIpzaJ48WwJNWv/FEpvECUaIJQ8FgCMSY2ZorQXj2G9UEezvwCEPPOquHrkC\nZPajRfvoa7GXx/XX7i0is0YN91WEMiJWvUCQhAkluxZC7h5fd70gQBCVS91cDbM9\nICxkzu06V8GqHCKM7Y68MWHivbc7FpsiToq6t9vHu6d14dv0cFoVjkR1K9xWRLU/\nIPG0ABMPSYW39MPrBfMZ9El6eLkh/sIXUpINpXmNdF2L4EuajezaLLP2NUTP1zG1\n3bVOS4wGda0kZMQpOYvn64UKtJmY9vgqAF3R80xtpwKBgQDS86fuM7u++TYN4Go8\n7bXafVcfW8A3HtVjG2aWlNpzbLrpL2H4GWxb1OIARMtArsQZ1xCMjnZQ8+cFOxLA\nAXeMSv/guNXde0rfvDLAZdzoocFqrsERssnIrWKt4AV1Z3RrSm7za4GKj1P0rdPi\nb1QtwmMiRyzKQ03h54M3TLPzNwKBgQDFDMtuchOu/XRCwY/xByyDJWysoAKul+Pc\njEDud+iaqSy8nSNMTPZ8icA0NXvCYUX1Fm7vvHQeAsBsO9N6+myNSumnO8V8pNfZ\nAEywT6oekipoMksWX4xNer32MMiY/bbI5V/aPo7U3/MtLWGGcUoW1rT8KNiCXRWI\nZ7JQN8ZZ3wKBgGOmxIqrF6K0eUt+2tDjfkezdCeVIS0ovKbvt7ukn7ltALLNNluM\nLvsGiqiT1uw8YtjOFrw/RDcjsNtwt3/KcZ3thAi1aBoTdyBP+C2ZMQ0X9JWf7gad\nTeMlvPrkW8/FSmKwq88D1xMMeB2azAAolTx0mn4D323A85am1f6Wll9rAoGAUHcb\nE2zOEOU69o+oQdqWGK/Nouhsb/Nifwte8IJSn+V5eUQJx/ydotl1fVxhv0yNjrms\nb4VbPW4OOaRshYmBjmkK5NmJmY6O/fQbXNwLMhSp8IapFufJmVIIBGKDZ8YjQAI6\nlBp7pP4WhVpEuuvEP3NJ0La1QvbT9jGyJQPBoa0CgYBNO22t5Yj+RRvph9lGIdAP\n/cGVL1GR8BtfvwTRIh+HCkyvbFznxsLM5ixE+1Ph2DGdO7+veLGdP/XCAj6RnD/1\n6NrpoSabBEZ2XG8yXUHPKcXGLkOGyrnfWTvoiVLVBqFTwnZbAsnO3URhYoWPyD42\nmTrb7e5WQowhamQGfBxCdA==\n-----END PRIVATE KEY-----\n",
+  "client_email": "flybotod@praxis-gear-475719-c2.iam.gserviceaccount.com",
+  "client_id": "112175541787915142702",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/flybotod%40praxis-gear-475719-c2.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
