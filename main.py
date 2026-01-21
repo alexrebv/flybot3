@@ -19,10 +19,8 @@ from telegram.ext import (
 import gspread
 from google.oauth2 import service_account
 
-
 # ================= LOGGING =================
 logging.basicConfig(level=logging.INFO)
-
 
 # ================= ENV =================
 TOKEN = os.getenv("TOKEN")
@@ -30,7 +28,6 @@ GOOGLE_CREDS = os.getenv("GOOGLE_CREDS")
 
 if not all([TOKEN, GOOGLE_CREDS]):
     raise RuntimeError("❌ Не заданы все переменные окружения")
-
 
 # ================= LEGAL =================
 LEGAL_MAIN = [
@@ -43,7 +40,6 @@ LEGAL_PARTNERS = [
     "ИП Измайлова Л.Е.", "ИП Никифоров", "ИП Рязанова",
     "ИП Суворова", "ИП Хабибуллин", "ООО ФИКСТИ"
 ]
-
 
 # ================= GOOGLE SHEETS =================
 SCOPES = [
@@ -61,28 +57,22 @@ creds = service_account.Credentials.from_service_account_info(
 
 client = gspread.authorize(creds)
 
-# Таблица и листы
 SPREADSHEET_NAME = "NUMBER"
 sheet_tel = client.open(SPREADSHEET_NAME).worksheet("tel")
 sheet_pass = client.open(SPREADSHEET_NAME).worksheet("pass")
 sheet_log = client.open(SPREADSHEET_NAME).worksheet("log")
 
-
 # ================= STATE =================
 user_states = {}
-
 
 def get_state(chat_id):
     return user_states.get(chat_id, {})
 
-
 def save_state(chat_id, state):
     user_states[chat_id] = state
 
-
 def clear_state(chat_id):
     user_states.pop(chat_id, None)
-
 
 # ================= BOT LOGIC =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -103,7 +93,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     )
 
-
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     text = update.message.text
@@ -114,7 +103,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await start(update, context)
         return
 
-    # ROLE
+    # BUTTON BACK
+    if text == "Назад":
+        prev_step = state.get("prev_step", "role")
+        state["step"] = prev_step
+        save_state(chat_id, state)
+
+        if prev_step == "role":
+            await start(update, context)
+        elif prev_step == "login":
+            await update.message.reply_text("Введите логин:")
+        elif prev_step == "password":
+            await update.message.reply_text("Введите пароль:")
+        elif prev_step == "legal":
+            await send_legal_menu(update)
+        return
+
+    # ROLE SELECTION
     if state.get("step") == "role":
         role_map = {
             "Поставщик": "supplier",
@@ -123,26 +128,36 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "УПР / ТУ": "uptu",
             "СОТ": "sot"
         }
-
         if text in role_map:
             state["role"] = role_map[text]
+            # Запоминаем предыдущий шаг для кнопки "Назад"
+            state["prev_step"] = "role"
 
             if text in ["Администратор", "УПР / ТУ", "СОТ"]:
                 state["step"] = "login"
-                await update.message.reply_text("Введите логин:")
+                state["prev_step"] = "role"
+                save_state(chat_id, state)
+                await update.message.reply_text(
+                    "Введите логин:",
+                    reply_markup=ReplyKeyboardMarkup([["Назад"]], resize_keyboard=True)
+                )
             else:
                 state["step"] = "legal"
+                state["prev_step"] = "role"
+                save_state(chat_id, state)
                 await send_legal_menu(update)
-
-            save_state(chat_id, state)
             return
 
     # LOGIN
     if state.get("step") == "login":
         state["login"] = text
         state["step"] = "password"
+        state["prev_step"] = "login"
         save_state(chat_id, state)
-        await update.message.reply_text("Введите пароль:")
+        await update.message.reply_text(
+            "Введите пароль:",
+            reply_markup=ReplyKeyboardMarkup([["Назад"]], resize_keyboard=True)
+        )
         return
 
     # PASSWORD
@@ -150,7 +165,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         role = state.get("role")
         login = state.get("login")
 
-        # Проверка пароля для admin, uptu, sot
         ok = (
             (role == "admin" and login == "REB" and text == "7920") or
             (role == "uptu" and login == "Ypty" and text == "0933") or
@@ -160,25 +174,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if ok:
             state["auth"] = True
             state["step"] = "legal"
+            state["prev_step"] = "password"
             save_state(chat_id, state)
             await send_legal_menu(update)
             return
 
-        # Проверка сотрудника
         if role == "employee":
             for r in sheet_pass.get_all_values()[1:]:
                 if r[0] == login and r[1] == text:
                     state["auth"] = True
                     state["step"] = "view"
+                    state["prev_step"] = "password"
                     save_state(chat_id, state)
                     await update.message.reply_text(f"Добро пожаловать, {login}!")
                     return
 
         state["step"] = "login"
         save_state(chat_id, state)
-        await update.message.reply_text("❌ Неверные данные. Введите логин ещё раз:")
+        await update.message.reply_text(
+            "❌ Неверные данные. Введите логин ещё раз:",
+            reply_markup=ReplyKeyboardMarkup([["Назад"]], resize_keyboard=True)
+        )
         return
-
 
 # ================= MENUS =================
 async def send_legal_menu(update: Update):
@@ -186,12 +203,13 @@ async def send_legal_menu(update: Update):
         [InlineKeyboardButton(l, callback_data=f"LEGAL_{l}")]
         for l in LEGAL_MAIN
     ]
+    # Добавляем кнопку назад как отдельную
+    keyboard.append([InlineKeyboardButton("Назад", callback_data="BACK")])
 
     await update.message.reply_text(
         "Выберите юридическое лицо:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
-
 
 # ================= RUN =================
 app = ApplicationBuilder().token(TOKEN).build()
