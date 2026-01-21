@@ -26,12 +26,9 @@ logging.basicConfig(level=logging.INFO)
 
 # ================= ENV =================
 TOKEN = os.getenv("TOKEN")
-SHEET_TEL = os.getenv("SHEET_TEL")
-SHEET_PASS = os.getenv("SHEET_PASS")
-SHEET_LOG = os.getenv("SHEET_LOG")
 GOOGLE_CREDS = os.getenv("GOOGLE_CREDS")
 
-if not all([TOKEN, SHEET_TEL, SHEET_PASS, SHEET_LOG, GOOGLE_CREDS]):
+if not all([TOKEN, GOOGLE_CREDS]):
     raise RuntimeError("❌ Не заданы все переменные окружения")
 
 
@@ -56,7 +53,7 @@ SCOPES = [
 
 creds_dict = json.loads(GOOGLE_CREDS)
 
-# 🔥 КРИТИЧЕСКИ ВАЖНО ДЛЯ RENDER
+# 🔥 КРИТИЧЕСКИ ВАЖНО ДЛЯ Render
 creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
 creds = service_account.Credentials.from_service_account_info(
@@ -66,9 +63,12 @@ creds = service_account.Credentials.from_service_account_info(
 
 client = gspread.authorize(creds)
 
-sheet_tel = client.open(SHEET_TEL).sheet1
-sheet_pass = client.open(SHEET_PASS).sheet1
-sheet_log = client.open(SHEET_LOG).sheet1
+# Название таблицы
+SPREADSHEET_NAME = "Number"
+
+sheet_tel = client.open(SPREADSHEET_NAME).worksheet("tel")
+sheet_pass = client.open(SPREADSHEET_NAME).worksheet("pass")
+sheet_log = client.open(SPREADSHEET_NAME).worksheet("log")
 
 
 # ================= STATE =================
@@ -156,48 +156,4 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ok = (
             (role == "admin" and login == "REB" and text == "7920") or
             (role == "uptu" and login == "Ypty" and text == "0933") or
-            (role == "sot" and login == "SOT" and text == "71727374")
-        )
-
-        if ok:
-            state["auth"] = True
-            state["step"] = "legal"
-            save_state(chat_id, state)
-            await send_legal_menu(update)
-            return
-
-        if role == "employee":
-            for r in sheet_pass.get_all_values()[1:]:
-                if r[0] == login and r[1] == text:
-                    state["auth"] = True
-                    state["step"] = "view"
-                    save_state(chat_id, state)
-                    await update.message.reply_text(f"Добро пожаловать, {login}!")
-                    return
-
-        state["step"] = "login"
-        save_state(chat_id, state)
-        await update.message.reply_text("❌ Неверные данные. Введите логин ещё раз:")
-        return
-
-
-# ================= MENUS =================
-async def send_legal_menu(update: Update):
-    keyboard = [
-        [InlineKeyboardButton(l, callback_data=f"LEGAL_{l}")]
-        for l in LEGAL_MAIN
-    ]
-
-    await update.message.reply_text(
-        "Выберите юридическое лицо:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-
-# ================= RUN =================
-app = ApplicationBuilder().token(TOKEN).build()
-
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-app.run_polling()
+            (role ==
