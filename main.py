@@ -1,4 +1,3 @@
-# ================= ОБНОВЛЕННЫЙ main.py =================
 import os
 import json
 import logging
@@ -21,6 +20,7 @@ from telegram.ext import (
 import gspread
 from google.oauth2 import service_account
 
+# ================= LOGGING =================
 logging.basicConfig(level=logging.INFO)
 
 # ================= ENV =================
@@ -227,11 +227,18 @@ async def send_legal_menu(update: Update):
         for l in LEGAL_MAIN
     ]
     keyboard.append([InlineKeyboardButton("Назад", callback_data="BACK")])
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await update.effective_chat.send_message(
-        "Выберите юридическое лицо:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    if update.callback_query:
+        await update.callback_query.message.edit_text(
+            "Выберите юридическое лицо:",
+            reply_markup=reply_markup
+        )
+    else:
+        await update.message.reply_text(
+            "Выберите юридическое лицо:",
+            reply_markup=reply_markup
+        )
 
 async def send_objects_by_legal(update: Update, state):
     legal = state.get("legal")
@@ -240,11 +247,18 @@ async def send_objects_by_legal(update: Update, state):
 
     keyboard = [[InlineKeyboardButton(o, callback_data=f"OBJ_{o}")] for o in objs]
     keyboard.append([InlineKeyboardButton("Назад", callback_data="BACK")])
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await update.effective_chat.send_message(
-        f"Список объектов для {legal}:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    if update.callback_query:
+        await update.callback_query.message.edit_text(
+            f"Список объектов для {legal}:",
+            reply_markup=reply_markup
+        )
+    else:
+        await update.message.reply_text(
+            f"Список объектов для {legal}:",
+            reply_markup=reply_markup
+        )
 
 # ================= RUN =================
 app = ApplicationBuilder().token(TOKEN).build()
