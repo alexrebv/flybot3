@@ -113,6 +113,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         elif prev_step == "legal":
             await send_legal_menu(update)
+        elif prev_step == "objects":
+            await send_objects_by_legal(update, state)
         return
 
     # ROLE SELECTION
@@ -208,6 +210,8 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await start(update, context)
         elif prev_step == "legal":
             await send_legal_menu(update)
+        elif prev_step == "objects":
+            await send_objects_by_legal(update, state)
         return
 
     # Выбор юридического лица
@@ -218,6 +222,22 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state["prev_step"] = "legal"
         save_state(chat_id, state)
         await send_objects_by_legal(update, state)
+        return
+
+    # Выбор объекта
+    if data.startswith("OBJ_"):
+        obj = data.replace("OBJ_", "")
+        # Получаем данные объекта из sheet_tel
+        rows = sheet_tel.get_all_values()[1:]
+        obj_data = [r for r in rows if r[0] == obj]
+        msg = f"Вы выбрали объект: {obj}\n"
+        if obj_data:
+            msg += f"Данные: {obj_data[0]}"
+        else:
+            msg += "Данных нет"
+
+        keyboard = [[InlineKeyboardButton("Назад", callback_data="BACK")]]
+        await query.message.edit_text(msg, reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
 # ================= MENUS =================
