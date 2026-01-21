@@ -1,11 +1,21 @@
 import os
 import json
 import logging
-from datetime import datetime
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup
+)
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    filters,
+    ContextTypes
+)
 import gspread
 from google.oauth2 import service_account
 
@@ -16,18 +26,35 @@ logging.basicConfig(level=logging.INFO)
 TOKEN = os.getenv("TOKEN")
 GOOGLE_CREDS = os.getenv("GOOGLE_CREDS")
 
-if not TOKEN or not GOOGLE_CREDS:
+if not all([TOKEN, GOOGLE_CREDS]):
     raise RuntimeError("❌ Не заданы все переменные окружения")
 
 # ================= LEGAL =================
-LEGAL_MAIN = ["ИП Макаров","ИП Гасанов","ИП Норкин","ИП Кистанов","ИП Матвеев","Партнеры"]
-LEGAL_PARTNERS = ["ИП Зименко Т.А.","ИП Иванов В.А.","ИП Иванов С.Е","ИП Измайлова Л.Е.","ИП Никифоров","ИП Рязанова","ИП Суворова","ИП Хабибуллин","ООО ФИКСТИ"]
+LEGAL_MAIN = [
+    "ИП Макаров", "ИП Гасанов", "ИП Норкин",
+    "ИП Кистанов", "ИП Матвеев", "Партнеры"
+]
+
+LEGAL_PARTNERS = [
+    "ИП Зименко Т.А.", "ИП Иванов В.А.", "ИП Иванов С.Е",
+    "ИП Измайлова Л.Е.", "ИП Никифоров", "ИП Рязанова",
+    "ИП Суворова", "ИП Хабибуллин", "ООО ФИКСТИ"
+]
 
 # ================= GOOGLE SHEETS =================
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets","https://www.googleapis.com/auth/drive"]
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
+
 creds_dict = json.loads(GOOGLE_CREDS)
-creds_dict["private_key"] = creds_dict["private_key"].replace("\\n","\n")
-creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+creds = service_account.Credentials.from_service_account_info(
+    creds_dict,
+    scopes=SCOPES
+)
+
 client = gspread.authorize(creds)
 
 SPREADSHEET_NAME = "NUMBER"
@@ -38,215 +65,226 @@ sheet_log = client.open(SPREADSHEET_NAME).worksheet("log")
 # ================= STATE =================
 user_states = {}
 
-def get_state(chat_id): return user_states.get(chat_id,{})
-def save_state(chat_id,state): user_states[chat_id]=state
-def clear_state(chat_id): user_states.pop(chat_id,None)
+def get_state(chat_id):
+    return user_states.get(chat_id, {})
 
-# ================= UTILS =================
-def col_to_num(col): return ord(col.upper())-64
-def get_object_row(name):
-    rows = sheet_tel.get_all_values()
-    for r in rows[1:]:
-        if r[0]==name: return r
-    return None
-def get_object_value(obj,col):
-    row = get_object_row(obj)
-    return row[col_to_num(col)-1] if row else ""
-def update_object(obj,col,value):
-    rows = sheet_tel.get_all_values()
-    for i,r in enumerate(rows[1:],start=2):
-        if r[0]==obj:
-            sheet_tel.update_cell(i,col_to_num(col),value)
-            return
-def check_auth(obj,login,password):
-    rows = sheet_pass.get_all_values()[1:]
-    for r in rows:
-        if (r[0]==obj or r[0]=="ADMIN") and r[1]==login and r[2]==password:
-            return True
-    return False
-def log_change(user_id,role,obj,col,old,new):
-    row = [str(datetime.now()),user_id,role,obj,col,old,new]
-    sheet_log.append_row(row)
+def save_state(chat_id, state):
+    user_states[chat_id] = state
 
-# ================= BOT =================
+def clear_state(chat_id):
+    user_states.pop(chat_id, None)
+
+# ================= BOT LOGIC =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     clear_state(chat_id)
-    save_state(chat_id,{"step":"role"})
-    keyboard = [["Поставщик"],["Сотрудник"],["Администратор"],["УПР / ТУ"],["СОТ"]]
-    await update.message.reply_text("Выберите тип пользователя:",reply_markup=ReplyKeyboardMarkup(keyboard,resize_keyboard=True))
+    save_state(chat_id, {"step": "role"})
+    keyboard = [
+        ["Поставщик"],
+        ["Сотрудник"],
+        ["Администратор"],
+        ["УПР / ТУ"],
+        ["СОТ"]
+    ]
+    await update.message.reply_text(
+        "Выберите тип пользователя:",
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     text = update.message.text
     state = get_state(chat_id)
 
-    # MAIN MENU
-    if text in ["/start","Выход в главное меню"]:
-        await start(update,context)
+    # ===== MAIN MENU =====
+    if text in ["/start", "Выход в главное меню"]:
+        await start(update, context)
         return
 
-    # BACK BUTTON
-    if text=="Назад":
-        prev = state.get("prev_step","role")
-        state["step"]=prev
-        save_state(chat_id,state)
-        if prev=="role": await start(update,context)
-        elif prev=="legal": await send_legal_menu(update)
-        elif prev=="objects": await send_objects_by_legal(update,state)
-        elif prev=="add_field": ask_next_field(update,state)
+    # ===== НАЗАД =====
+    if text == "Назад к юр.лицам":
+        state["step"] = "legal"
+        save_state(chat_id, state)
+        await send_legal_menu(update)
         return
 
-    # ROLE
-    if state.get("step")=="role":
-        roles = {"Поставщик":"supplier","Сотрудник":"employee","Администратор":"admin","УПР / ТУ":"uptu","СОТ":"sot"}
-        if text in roles:
-            state["role"]=roles[text]
-            state["prev_step"]="role"
-            if text in ["Администратор","УПР / ТУ","СОТ"]:
-                state["step"]="login"
-                save_state(chat_id,state)
-                await update.message.reply_text("Введите логин:",reply_markup=ReplyKeyboardMarkup([["Назад"]],resize_keyboard=True))
+    # ===== РОЛИ =====
+    if state.get("step") == "role":
+        role_map = {
+            "Поставщик": "supplier",
+            "Сотрудник": "employee",
+            "Администратор": "admin",
+            "УПР / ТУ": "uptu",
+            "СОТ": "sot"
+        }
+        if text in role_map:
+            state["role"] = role_map[text]
+            if text in ["Администратор", "УПР / ТУ", "СОТ"]:
+                state["step"] = "login"
+                save_state(chat_id, state)
+                await update.message.reply_text("Введите логин:")
             else:
-                state["step"]="legal"
-                save_state(chat_id,state)
+                state["step"] = "legal"
+                save_state(chat_id, state)
                 await send_legal_menu(update)
             return
 
-    # LOGIN
-    if state.get("step")=="login":
-        state["login"]=text
-        state["step"]="password"
-        state["prev_step"]="login"
-        save_state(chat_id,state)
-        await update.message.reply_text("Введите пароль:",reply_markup=ReplyKeyboardMarkup([["Назад"]],resize_keyboard=True))
+    # ===== LOGIN =====
+    if state.get("step") == "login":
+        state["login"] = text
+        state["step"] = "password"
+        save_state(chat_id, state)
+        await update.message.reply_text("Введите пароль:")
         return
 
-    # PASSWORD
-    if state.get("step")=="password":
-        role=state.get("role"); login=state.get("login")
-        ok=((role=="admin" and login=="REB" and text=="7920") or
-            (role=="uptu" and login=="Ypty" and text=="0933") or
-            (role=="sot" and login=="SOT" and text=="71727374"))
+    # ===== PASSWORD =====
+    if state.get("step") == "password":
+        role = state.get("role")
+        login = state.get("login")
+        ok = (
+            (role == "admin" and login == "REB" and text == "7920") or
+            (role == "uptu" and login == "Ypty" and text == "0933") or
+            (role == "sot" and login == "SOT" and text == "71727374")
+        )
         if ok:
-            state["auth"]=True
-            state["step"]="legal"
-            state["prev_step"]="password"
-            save_state(chat_id,state)
+            state["auth"] = True
+            state["step"] = "legal"
+            save_state(chat_id, state)
             await send_legal_menu(update)
             return
-        if role=="employee" and check_auth("",login,text):
-            state["auth"]=True
-            state["step"]="view"
-            state["prev_step"]="password"
-            save_state(chat_id,state)
-            await update.message.reply_text(f"Добро пожаловать, {login}!")
-            return
-        state["step"]="login"; save_state(chat_id,state)
-        await update.message.reply_text("❌ Неверные данные\nВведите логин ещё раз:",reply_markup=ReplyKeyboardMarkup([["Назад"]],resize_keyboard=True))
+        if role == "employee":
+            for r in sheet_pass.get_all_values()[1:]:
+                if r[0] == login and r[1] == text:
+                    state["auth"] = True
+                    state["step"] = "view"
+                    save_state(chat_id, state)
+                    await update.message.reply_text(f"Добро пожаловать, {login}!")
+                    return
+        state["step"] = "login"
+        save_state(chat_id, state)
+        await update.message.reply_text("❌ Неверные данные. Введите логин ещё раз:")
         return
 
-# ================= CALLBACK =================
-async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ===== ФУНКЦИИ ДЛЯ ОБЪЕКТОВ =====
+def get_object_row(name):
+    """Возвращает строку объекта по названию"""
+    data = sheet_tel.get_all_values()
+    for row in data[1:]:
+        if row[0] == name:
+            return row
+    return None
+
+async def send_object(update, state):
+    """Красиво показывает данные объекта"""
+    chat_id = update.effective_chat.id if hasattr(update,"message") else update.callback_query.message.chat.id
+    obj = state.get("object")
+    row = get_object_row(obj)
+    if not row:
+        await update.message.reply_text("❌ Объект не найден")
+        return
+
+    text = f"*Название объекта:* {row[0]}\n"
+    text += f"- ИП: {row[1]}\n"
+    text += f"- Адрес парковки: {row[2]}\n"
+    text += f"- Адрес объекта: {row[3]}\n"
+    text += f"- Метка парковки: {row[4]}\n"
+    text += f"- Нюансы: {row[5]}\n"
+    text += f"- Как добраться: {row[6]}\n"
+    text += f"- Метка объекта: {row[7]}\n"
+    text += f"- Фото: {row[8]}\n\n"
+    text += f"- Телефон 1: {row[9]}\n"
+    text += f"- Телефон 2: {row[10]}\n"
+    text += f"- Телефон 3: {row[11]}\n\n"
+    text += f"- Управляющий: {row[12]}\n"
+    text += f"- ТУ: {row[13]}"
+
+    kb = [[InlineKeyboardButton("Назад к юр.лицам", callback_data="BACK")]]
+    if state.get("role") in ["admin","sot","uptu"]:
+        kb.insert(0,[InlineKeyboardButton("Редактировать", callback_data="EDIT_OBJ")])
+
+    if hasattr(update,"callback_query") and update.callback_query:
+        await update.callback_query.message.edit_text(
+            text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb)
+        )
+    else:
+        await update.message.reply_text(
+            text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(kb)
+        )
+
+async def send_objects_by_legal(update, state):
+    """Показывает список объектов по выбранному юр.лицу"""
+    chat_id = update.effective_chat.id if hasattr(update,"message") else update.callback_query.message.chat.id
+    legal = state.get("legal")
+    role = state.get("role")
+
+    data = sheet_tel.get_all_values()[1:]
+    objs = [r[0] for r in data if r[1] == legal]
+
+    if not objs:
+        await update.message.reply_text("❌ Объектов для этого юр.лица нет")
+        return
+
+    kb = [[InlineKeyboardButton(o, callback_data=f"OBJ_{o}")] for o in objs]
+    await update.message.reply_text("Выберите объект:", reply_markup=InlineKeyboardMarkup(kb))
+
+    if role in ["admin","sot","uptu"]:
+        kb2 = [["Добавить объект"],["Выход в главное меню"]]
+    else:
+        kb2 = [["Выход в главное меню"]]
+
+    await update.message.reply_text(
+        "Доступные действия:", reply_markup=ReplyKeyboardMarkup(kb2, resize_keyboard=True)
+    )
+
+# ===== MENUS =====
+async def send_legal_menu(update):
+    keyboard = [[InlineKeyboardButton(l, callback_data=f"LEGAL_{l}")] for l in LEGAL_MAIN]
+    if hasattr(update,"callback_query") and update.callback_query:
+        await update.callback_query.message.edit_text(
+            "Выберите юридическое лицо:", reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    else:
+        await update.message.reply_text(
+            "Выберите юридическое лицо:", reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+# ===== CALLBACK HANDLER =====
+async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    chat_id = query.message.chat.id
     data = query.data
+    chat_id = query.message.chat.id
     state = get_state(chat_id)
 
-    if data=="BACK":
-        prev = state.get("prev_step","role")
-        state["step"]=prev
-        save_state(chat_id,state)
-        if prev=="role": await start(update,context)
-        elif prev=="legal": await send_legal_menu(update)
-        elif prev=="objects": await send_objects_by_legal(update,state)
-        elif prev=="add_field": ask_next_field(update,state)
+    if data == "BACK":
+        state["step"] = "legal"
+        save_state(chat_id, state)
+        await send_legal_menu(update)
+        return
+
+    if data == "EDIT_OBJ":
+        await query.message.reply_text("Функция редактирования пока не реализована")
         return
 
     if data.startswith("LEGAL_"):
         legal = data.replace("LEGAL_","")
-        state["legal"]=legal
-        state["step"]="objects"
-        state["prev_step"]="legal"
-        save_state(chat_id,state)
-        await send_objects_by_legal(update,state)
+        state["legal"] = legal
+        state["step"] = "objects"
+        save_state(chat_id, state)
+        await send_objects_by_legal(update, state)
         return
 
     if data.startswith("OBJ_"):
         obj = data.replace("OBJ_","")
-        state["object"]=obj
-        state["step"]="view"
-        save_state(chat_id,state)
-        row = get_object_row(obj)
-        text = f"*{row[0]}*\n-ИП: {row[1]}\n-Адрес парковки: {row[2]}\n-Адрес объекта: {row[3]}\n-Метка парковки: {row[4]}\n-Нюансы: {row[5]}\n-Как добраться: {row[6]}\n-Метка объекта: {row[7]}\n-Фото: {row[8]}\n-Телефоны: {row[9]}, {row[10]}, {row[11]}\n-Управляющий: {row[12]}\n-ТУ: {row[13]}"
-        kb = [[InlineKeyboardButton("Назад",callback_data="BACK")]]
-        await query.message.edit_text(text,parse_mode="Markdown",reply_markup=InlineKeyboardMarkup(kb))
+        state["object"] = obj
+        state["step"] = "view"
+        save_state(chat_id, state)
+        await send_object(update, state)
         return
 
-    if data=="ADD_OBJ":
-        state["step"]="add_field"
-        state["newObject"]={}
-        state["fields"]=[("name","Название объекта"),
-                         ("legal","Юридическое лицо",state["legal"]),
-                         ("parking","Адрес парковки"),
-                         ("address","Адрес объекта"),
-                         ("parkingTag","Метка парковки"),
-                         ("notes","Нюансы"),
-                         ("howToGet","Как добраться"),
-                         ("objectTag","Метка объекта"),
-                         ("photo","Фото"),
-                         ("phone1","Телефон 1"),
-                         ("phone2","Телефон 2"),
-                         ("phone3","Телефон 3"),
-                         ("manager","Управляющий"),
-                         ("tu","ТУ")]
-        state["current_field"]=0
-        state["prev_step"]="objects"
-        save_state(chat_id,state)
-        ask_next_field(update,state)
-        return
-
-# ================= ADD / EDIT OBJECT =================
-def ask_next_field(update,state):
-    chat_id = update.effective_chat.id if hasattr(update,'message') else update.callback_query.message.chat.id
-    field = state["fields"][state["current_field"]]
-    label = field[1]
-    default = f" (по умолчанию: {field[2]})" if len(field)>2 else ""
-    kb = [[InlineKeyboardButton("Пропустить",callback_data="SKIP")],[InlineKeyboardButton("Назад",callback_data="BACK")]]
-    text = f"Введите {label}{default}:"
-    if hasattr(update,"callback_query"):
-        update.callback_query.message.reply_text(text,reply_markup=InlineKeyboardMarkup(kb))
-    else:
-        update.message.reply_text(text,reply_markup=InlineKeyboardMarkup(kb))
-
-# ================= MENUS =================
-async def send_legal_menu(update):
-    keyboard = [[InlineKeyboardButton(l,callback_data=f"LEGAL_{l}")] for l in LEGAL_MAIN]
-    keyboard.append([InlineKeyboardButton("Назад",callback_data="BACK")])
-    markup = InlineKeyboardMarkup(keyboard)
-    if getattr(update,"callback_query",None):
-        await update.callback_query.message.edit_text("Выберите юридическое лицо:",reply_markup=markup)
-    else:
-        await update.message.reply_text("Выберите юридическое лицо:",reply_markup=markup)
-
-async def send_objects_by_legal(update,state):
-    legal = state.get("legal")
-    data_rows = sheet_tel.get_all_values()[1:]
-    objs = [r[0] for r in data_rows if r[1]==legal]
-    keyboard = [[InlineKeyboardButton(o,callback_data=f"OBJ_{o}")] for o in objs]
-    if state.get("role") in ["admin","sot","uptu"]:
-        keyboard.append([InlineKeyboardButton("Добавить объект",callback_data="ADD_OBJ")])
-    keyboard.append([InlineKeyboardButton("Назад",callback_data="BACK")])
-    markup = InlineKeyboardMarkup(keyboard)
-    if getattr(update,"callback_query",None):
-        await update.callback_query.message.edit_text(f"Список объектов для {legal}:",reply_markup=markup)
-    else:
-        await update.message.reply_text(f"Список объектов для {legal}:",reply_markup=markup)
-
-# ================= RUN =================
+# ===== RUN BOT =====
 app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(CommandHandler("start",start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,handle_message))
-app.add_handler(CallbackQueryHandler(callback_handler))
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+app.add_handler(CallbackQueryHandler(handle_callback))
 app.run_polling()
