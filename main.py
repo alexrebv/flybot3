@@ -62,7 +62,7 @@ creds = service_account.Credentials.from_service_account_info(
 client = gspread.authorize(creds)
 
 # Таблица и листы
-SPREADSHEET_NAME = "Number"
+SPREADSHEET_NAME = "NUMBER"
 sheet_tel = client.open(SPREADSHEET_NAME).worksheet("tel")
 sheet_pass = client.open(SPREADSHEET_NAME).worksheet("pass")
 sheet_log = client.open(SPREADSHEET_NAME).worksheet("log")
