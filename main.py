@@ -220,7 +220,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_objects_by_legal(update, state)
         return
 
-# ================= OBJECTS MENU =================
+# ================= MENUS =================
 async def send_legal_menu(update: Update):
     keyboard = [
         [InlineKeyboardButton(l, callback_data=f"LEGAL_{l}")]
@@ -229,7 +229,7 @@ async def send_legal_menu(update: Update):
     keyboard.append([InlineKeyboardButton("Назад", callback_data="BACK")])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if update.callback_query:
+    if getattr(update, "callback_query", None):
         await update.callback_query.message.edit_text(
             "Выберите юридическое лицо:",
             reply_markup=reply_markup
@@ -249,7 +249,7 @@ async def send_objects_by_legal(update: Update, state):
     keyboard.append([InlineKeyboardButton("Назад", callback_data="BACK")])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    if update.callback_query:
+    if getattr(update, "callback_query", None):
         await update.callback_query.message.edit_text(
             f"Список объектов для {legal}:",
             reply_markup=reply_markup
