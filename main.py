@@ -1,3 +1,4 @@
+# ================= ОБНОВЛЕННЫЙ main.py =================
 import os
 import json
 import logging
@@ -20,7 +21,6 @@ from telegram.ext import (
 import gspread
 from google.oauth2 import service_account
 
-# ================= LOGGING =================
 logging.basicConfig(level=logging.INFO)
 
 # ================= ENV =================
@@ -44,12 +44,7 @@ SCOPES = [
 
 creds_dict = json.loads(GOOGLE_CREDS)
 creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-
-creds = service_account.Credentials.from_service_account_info(
-    creds_dict,
-    scopes=SCOPES
-)
-
+creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
 client = gspread.authorize(creds)
 
 SPREADSHEET_NAME = "NUMBER"
@@ -211,14 +206,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if prev_step == "role":
             await start(update, context)
-        elif prev_step == "login":
-            await query.message.edit_text(
-                "Введите логин:"
-            )
-        elif prev_step == "password":
-            await query.message.edit_text(
-                "Введите пароль:"
-            )
         elif prev_step == "legal":
             await send_legal_menu(update)
         return
@@ -241,16 +228,10 @@ async def send_legal_menu(update: Update):
     ]
     keyboard.append([InlineKeyboardButton("Назад", callback_data="BACK")])
 
-    if hasattr(update, "callback_query"):
-        await update.callback_query.message.edit_text(
-            "Выберите юридическое лицо:",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-    else:
-        await update.message.reply_text(
-            "Выберите юридическое лицо:",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+    await update.effective_chat.send_message(
+        "Выберите юридическое лицо:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 async def send_objects_by_legal(update: Update, state):
     legal = state.get("legal")
@@ -260,7 +241,7 @@ async def send_objects_by_legal(update: Update, state):
     keyboard = [[InlineKeyboardButton(o, callback_data=f"OBJ_{o}")] for o in objs]
     keyboard.append([InlineKeyboardButton("Назад", callback_data="BACK")])
 
-    await update.callback_query.message.edit_text(
+    await update.effective_chat.send_message(
         f"Список объектов для {legal}:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
