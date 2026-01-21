@@ -12,6 +12,7 @@ from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     filters,
     ContextTypes
 )
@@ -33,12 +34,6 @@ if not all([TOKEN, GOOGLE_CREDS]):
 LEGAL_MAIN = [
     "ИП Макаров", "ИП Гасанов", "ИП Норкин",
     "ИП Кистанов", "ИП Матвеев", "Партнеры"
-]
-
-LEGAL_PARTNERS = [
-    "ИП Зименко Т.А.", "ИП Иванов В.А.", "ИП Иванов С.Е",
-    "ИП Измайлова Л.Е.", "ИП Никифоров", "ИП Рязанова",
-    "ИП Суворова", "ИП Хабибуллин", "ООО ФИКСТИ"
 ]
 
 # ================= GOOGLE SHEETS =================
@@ -112,9 +107,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if prev_step == "role":
             await start(update, context)
         elif prev_step == "login":
-            await update.message.reply_text("Введите логин:")
+            await update.message.reply_text(
+                "Введите логин:",
+                reply_markup=ReplyKeyboardMarkup([["Назад"]], resize_keyboard=True)
+            )
         elif prev_step == "password":
-            await update.message.reply_text("Введите пароль:")
+            await update.message.reply_text(
+                "Введите пароль:",
+                reply_markup=ReplyKeyboardMarkup([["Назад"]], resize_keyboard=True)
+            )
         elif prev_step == "legal":
             await send_legal_menu(update)
         return
@@ -130,12 +131,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
         if text in role_map:
             state["role"] = role_map[text]
-            # Запоминаем предыдущий шаг для кнопки "Назад"
             state["prev_step"] = "role"
 
             if text in ["Администратор", "УПР / ТУ", "СОТ"]:
                 state["step"] = "login"
-                state["prev_step"] = "role"
                 save_state(chat_id, state)
                 await update.message.reply_text(
                     "Введите логин:",
@@ -143,7 +142,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             else:
                 state["step"] = "legal"
-                state["prev_step"] = "role"
                 save_state(chat_id, state)
                 await send_legal_menu(update)
             return
@@ -197,17 +195,73 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-# ================= MENUS =================
+# ================= CALLBACK HANDLER =================
+async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    chat_id = query.message.chat.id
+    state = get_state(chat_id)
+
+    # Кнопка назад
+    if data == "BACK":
+        prev_step = state.get("prev_step", "role")
+        state["step"] = prev_step
+        save_state(chat_id, state)
+
+        if prev_step == "role":
+            await start(update, context)
+        elif prev_step == "login":
+            await query.message.edit_text(
+                "Введите логин:"
+            )
+        elif prev_step == "password":
+            await query.message.edit_text(
+                "Введите пароль:"
+            )
+        elif prev_step == "legal":
+            await send_legal_menu(update)
+        return
+
+    # Выбор юридического лица
+    if data.startswith("LEGAL_"):
+        legal = data.replace("LEGAL_", "")
+        state["legal"] = legal
+        state["step"] = "objects"
+        state["prev_step"] = "legal"
+        save_state(chat_id, state)
+        await send_objects_by_legal(update, state)
+        return
+
+# ================= OBJECTS MENU =================
 async def send_legal_menu(update: Update):
     keyboard = [
         [InlineKeyboardButton(l, callback_data=f"LEGAL_{l}")]
         for l in LEGAL_MAIN
     ]
-    # Добавляем кнопку назад как отдельную
     keyboard.append([InlineKeyboardButton("Назад", callback_data="BACK")])
 
-    await update.message.reply_text(
-        "Выберите юридическое лицо:",
+    if hasattr(update, "callback_query"):
+        await update.callback_query.message.edit_text(
+            "Выберите юридическое лицо:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    else:
+        await update.message.reply_text(
+            "Выберите юридическое лицо:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+async def send_objects_by_legal(update: Update, state):
+    legal = state.get("legal")
+    data_rows = sheet_tel.get_all_values()[1:]
+    objs = [r[0] for r in data_rows if r[1] == legal]
+
+    keyboard = [[InlineKeyboardButton(o, callback_data=f"OBJ_{o}")] for o in objs]
+    keyboard.append([InlineKeyboardButton("Назад", callback_data="BACK")])
+
+    await update.callback_query.message.edit_text(
+        f"Список объектов для {legal}:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
@@ -215,4 +269,5 @@ async def send_legal_menu(update: Update):
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+app.add_handler(CallbackQueryHandler(callback_handler))
 app.run_polling()
